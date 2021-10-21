@@ -1,6 +1,7 @@
 import json
 import sys
 from typing import List, Dict, Union
+import cryptography.hazmat
 
 import snowflake.connector
 import re
@@ -23,7 +24,6 @@ def validate_config(config):
         'account',
         'dbname',
         'user',
-        'password',
         'warehouse',
         's3_bucket',
         'stage',
@@ -34,7 +34,6 @@ def validate_config(config):
         'account',
         'dbname',
         'user',
-        'password',
         'warehouse',
         'file_format'
     ]
@@ -51,6 +50,15 @@ def validate_config(config):
         errors.append("Only one of 's3_bucket' or 'stage' keys defined in config. "
                       "Use both of them if you want to use an external stage when loading data into snowflake "
                       "or don't use any of them if you want ot use table stages.")
+
+    # Check for password/private_key auth
+    if 'private_key' in config and 'password' in config:
+        errors.append("Use only one of the following configurations: [password, private_key]")
+    if 'private_key' not in config:
+        required_config_keys.append('password')
+    if 'password' not in config:
+        required_config_keys.append('private_key')
+        required_config_keys.append('private_key_password')
 
     # Check if mandatory keys exist
     for k in required_config_keys:
@@ -299,15 +307,14 @@ class DbSync:
         if self.stream_schema_message:
             stream = self.stream_schema_message['stream']
 
-        return snowflake.connector.connect(
-            user=self.connection_config['user'],
-            password=self.connection_config['password'],
-            account=self.connection_config['account'],
-            database=self.connection_config['dbname'],
-            warehouse=self.connection_config['warehouse'],
-            role=self.connection_config.get('role', None),
-            autocommit=True,
-            session_parameters={
+        connection_args = {
+            "user": self.connection_config['user'],
+            "account": self.connection_config['account'],
+            "database": self.connection_config['dbname'],
+            "warehouse": self.connection_config['warehouse'],
+            "role": self.connection_config.get('role', None),
+            "autocommit": True,
+            "session_parameters": {
                 # Quoted identifiers should be case sensitive
                 'QUOTED_IDENTIFIERS_IGNORE_CASE': 'FALSE',
                 'QUERY_TAG': create_query_tag(self.connection_config.get('query_tag'),
@@ -315,7 +322,33 @@ class DbSync:
                                               schema=self.schema_name,
                                               table=self.table_name(stream, False, True))
             }
+        }
+
+        if 'password' in self.connection_config:
+            connection_args.update({ "password": self.connection_config['password'] })
+        else:
+            connection_args.update({ "private_key": self.get_private_key() })
+
+        return snowflake.connector.connect(**connection_args)
+
+    def get_private_key(self):
+        """Function responsible for getting the private key.
+
+        Returns:
+            bytes: Private key used to start snowflake connection.
+        """
+        private_key = self.connection_config['private_key'].replace("\\n","\n")
+
+        p_key = cryptography.hazmat.primitives.serialization.load_pem_private_key(
+            private_key.encode(),
+            password=self.connection_config['private_key_password'].encode(),
+            backend=cryptography.hazmat.backends.default_backend()
         )
+
+        return p_key.private_bytes(
+            encoding=cryptography.hazmat.primitives.serialization.Encoding.DER,
+            format=cryptography.hazmat.primitives.serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=cryptography.hazmat.primitives.serialization.NoEncryption())
 
     def query(self, query: Union[str, List[str]], params: Dict = None, max_records=0) -> List[Dict]:
         """Run an SQL query in snowflake"""
@@ -462,12 +495,12 @@ class DbSync:
                 updates = 0
 
                 # Insert or Update with MERGE command if primary key defined
-                if len(self.stream_schema_message['key_properties']) > 0:
+                if len(self.stream_schema_message['key_properties']) > 0 and not self.connection_config.get("force_copy", False):
                     merge_sql = self.file_format.formatter.create_merge_sql(table_name=self.table_name(stream, False),
                                                                             stage_name=self.get_stage_name(stream),
                                                                             s3_key=s3_key,
                                                                             file_format_name=
-                                                                                self.connection_config['file_format'],
+                                                                                self.connection_config['file_format']['format_name'],
                                                                             columns=columns_with_trans,
                                                                             pk_merge_condition=
                                                                                 self.primary_key_merge_condition())
@@ -485,9 +518,10 @@ class DbSync:
                     copy_sql = self.file_format.formatter.create_copy_sql(table_name=self.table_name(stream, False),
                                                                           stage_name=self.get_stage_name(stream),
                                                                           s3_key=s3_key,
-                                                                          file_format_name=
+                                                                          file_format=
                                                                             self.connection_config['file_format'],
-                                                                          columns=columns_with_trans)
+                                                                          columns=columns_with_trans,
+                                                                          copy_into_options=self.connection_config.get('copy_into_options', ""))
                     self.logger.debug('Running query: %s', copy_sql)
                     cur.execute(copy_sql)
 
