@@ -62,13 +62,16 @@ class FileFormat:
         """Detect the type of an existing snowflake file format object
 
         Params:
-            file_format: File format name
+            file_format: File format object
             query_fn: A callable function that can run SQL queries in an active Snowflake session
 
         Returns:
             FileFormatTypes enum item
         """
-        file_format_name = file_format.split('.')[-1]
+        if 'format_name' not in file_format:
+            return FileFormatTypes(file_format['type'].replace("'", "").lower())
+
+        file_format_name = file_format['format_name'].split('.')[-1]
         file_formats_in_sf = query_fn(f"SHOW FILE FORMATS LIKE '{file_format_name}'")
 
         if len(file_formats_in_sf) == 1:

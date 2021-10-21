@@ -12,17 +12,22 @@ import target_snowflake.flattening as flattening
 def create_copy_sql(table_name: str,
                     stage_name: str,
                     s3_key: str,
-                    file_format_name: str,
-                    columns: List):
+                    file_format: str,
+                    columns: List,
+                    copy_into_options=""):
     """Generate a CSV compatible snowflake COPY INTO command"""
+    file_format_config = '\n'.join([ f"{k}={file_format[k]}" for k in file_format ])
+
     return "COPY INTO {} ({}) " \
            "FROM '@{}/{}' " \
-           "FILE_FORMAT = (format_name='{}')".format(
+           "FILE_FORMAT = ({}) " \
+           "{}".format(
         table_name,
         ', '.join([c['name'] for c in columns]),
         stage_name,
         s3_key,
-        file_format_name)
+        file_format_config,
+        copy_into_options)
 
 
 def create_merge_sql(table_name: str,

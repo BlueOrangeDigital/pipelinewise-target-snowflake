@@ -98,7 +98,7 @@ class TestCsv(unittest.TestCase):
         self.assertEqual(csv.create_copy_sql(table_name='foo_table',
                                              stage_name='foo_stage',
                                              s3_key='foo_s3_key.csv',
-                                             file_format_name='foo_file_format',
+                                             file_format={'format_name': "'foo_file_format'"},
                                              columns=[{'name': 'COL_1'},
                                                       {'name': 'COL_2'},
                                                       {'name': 'COL_3',

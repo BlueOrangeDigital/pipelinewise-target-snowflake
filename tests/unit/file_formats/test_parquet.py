@@ -54,7 +54,7 @@ class TestParquet(unittest.TestCase):
         self.assertEqual(parquet.create_copy_sql(table_name='foo_table',
                                                  stage_name='foo_stage',
                                                  s3_key='foo_s3_key.parquet',
-                                                 file_format_name='foo_file_format',
+                                                 file_format={'format_name': "'foo_file_format'"},
                                                  columns=[{'name': 'COL_1', 'json_element_name': 'col_1', 'trans': ''},
                                                           {'name': 'COL_2', 'json_element_name': 'colTwo', 'trans': ''},
                                                           {'name': 'COL_3', 'json_element_name': 'col_3',
