@@ -471,11 +471,11 @@ def flush_records(stream: str,
         stream_name_parts = stream_utils.stream_name_to_dict(stream)
         if 'schema_name' not in stream_name_parts or 'table_name' not in stream_name_parts or \
                 stream_name_parts['schema_name'] is None or stream_name_parts['table_name'] is None:
-            raise Exception("Failed to extract schema and table names from stream '{}'".format(stream))
+            LOGGER.warn("Failed to extract schema and table names from stream '{}', setting to 'default'".format(stream))
 
-        archive_schema = stream_name_parts['schema_name']
-        archive_table = stream_name_parts['table_name']
-        archive_tap = archive_load_files['tap']
+        archive_schema = str(stream_name_parts.get('schema_name'))
+        archive_table = str(stream_name_parts.get('table_name'))
+        archive_tap = str(archive_load_files.get('tap'))
 
         archive_metadata = {
             'tap': archive_tap,
