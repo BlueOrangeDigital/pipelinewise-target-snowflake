@@ -182,11 +182,12 @@ def persist_lines(config, lines, table_cache=None, file_format_type: FileFormatT
                     min_value = stream_archive_load_files_values['min']
                     max_value = stream_archive_load_files_values['max']
 
-                    if min_value is None or min_value > incremental_key_value:
-                        stream_archive_load_files_values['min'] = incremental_key_value
+                    if incremental_key_value is not None:
+                        if min_value is None or min_value > incremental_key_value:
+                            stream_archive_load_files_values['min'] = incremental_key_value
 
-                    if max_value is None or max_value < incremental_key_value:
-                        stream_archive_load_files_values['max'] = incremental_key_value
+                        if max_value is None or max_value < incremental_key_value:
+                            stream_archive_load_files_values['max'] = incremental_key_value
 
             flush = False
             if row_count[stream] >= batch_size_rows:
