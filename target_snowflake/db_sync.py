@@ -380,7 +380,7 @@ class DbSync:
                     # update the LAST_QID
                     params['LAST_QID'] = qid
 
-                    self.logger.info("Running query: '%s' with Params %s", q, params)
+                    self.logger.info("Running query: '%s' with Params(Testing) %s", q, params)
 
                     cur.execute(q, params)
                     qid = cur.sfqid
