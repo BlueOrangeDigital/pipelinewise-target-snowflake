@@ -431,7 +431,7 @@ class DbSync:
         """Delete file from snowflake stage"""
         self.upload_client.delete_object(stream, s3_key)
 
-    def copy_to_archive(self, s3_source_key, s3_archive_key, s3_archive_metadata):
+    def copy_to_archive(self, s3_source_key, s3_archive_key):
         """
         Copy file from snowflake stage to archive.
 
@@ -442,8 +442,6 @@ class DbSync:
 
                         As destination bucket, the config value 'archive_load_files_s3_bucket' will be used. If none is
                         specified, the bucket configured as 's3_bucket' will be used.
-
-        s3_archive_metadata: This dict will be merged with any metadata in the source file.
 
         """
         source_bucket = self.connection_config.get('s3_bucket')
@@ -459,7 +457,7 @@ class DbSync:
         copy_source = f'{source_bucket}/{s3_source_key}'
 
         self.logger.info('Copying %s to archive location %s', copy_source, prefixed_archive_key)
-        self.upload_client.copy_object(copy_source, archive_bucket, prefixed_archive_key, s3_archive_metadata)
+        self.upload_client.copy_object(copy_source, archive_bucket, prefixed_archive_key, target_metadata={})
 
     def get_stage_name(self, stream):
         """Generate snowflake stage name"""
