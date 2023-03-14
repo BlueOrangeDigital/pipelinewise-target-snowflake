@@ -322,6 +322,7 @@ class DbSync:
         else:
             connection_args.update({ "private_key": self.get_private_key() })
 
+        self.logger.info("Opening Connection")
         return snowflake.connector.connect(**connection_args)
 
     def get_private_key(self):
